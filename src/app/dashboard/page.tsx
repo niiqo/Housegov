@@ -8,6 +8,8 @@ export default function DashboardPage() {
     const [newTask, setNewTask] = useState("");
     const [houseId, setHouseId] = useState<string | null>(null);
     const [tasks, setTasks] = useState<any[]>([]);
+    const [command, setCommand] = useState("");
+    const [cmdStatus, setCmdStatus] = useState<string>("");
 
 useEffect(() => {
   const id = localStorage.getItem("houseId");
@@ -27,6 +29,32 @@ useEffect(() => {
 
   return () => unsub();
 }, []);
+
+  async function runCommand() {
+  if (!houseId || !command.trim()) return;
+
+  setCmdStatus("Ejecutando...");
+
+  try {
+    const res = await fetch("/api/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: command,
+        houseId,
+        uid: auth.currentUser?.uid ?? undefined,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error ?? "Error");
+
+    setCmdStatus(`OK: ${data?.cmd?.action}`);
+    setCommand("");
+  } catch (e: any) {
+    setCmdStatus(`Error: ${e?.message ?? "Error"}`);
+  }
+}
 
   async function loadTasks(hId: string) {
     const snapshot = await getDocs(
@@ -86,6 +114,24 @@ async function completeTask(taskId: string) {
     Crear tarea
   </button>
 </div>
+
+<div className="border rounded-md p-3 space-y-2">
+  <p className="font-semibold">Comando</p>
+  <div className="flex gap-2">
+    <input
+      className="border px-3 py-2 rounded-md w-full"
+      placeholder='Ej: "Agregá papel higiénico"'
+      value={command}
+      onChange={(e) => setCommand(e.target.value)}
+    />
+    <button onClick={runCommand} className="border px-3 py-2 rounded-md font-semibold">
+      Ejecutar
+    </button>
+  </div>
+  {cmdStatus ? <p className="text-sm opacity-70">{cmdStatus}</p> : null}
+</div>
+
+
 
         {tasks.length === 0 && <p>No hay tareas todavía.</p>}
 
