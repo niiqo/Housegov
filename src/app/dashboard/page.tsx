@@ -2,20 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase/client";
-import { collection, getDocs, addDoc, doc, updateDoc , serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc , serverTimestamp, onSnapshot, query, orderBy } from "firebase/firestore";
 
 export default function DashboardPage() {
     const [newTask, setNewTask] = useState("");
     const [houseId, setHouseId] = useState<string | null>(null);
     const [tasks, setTasks] = useState<any[]>([]);
 
-  useEffect(() => {
-    const id = localStorage.getItem("houseId");
-    if (id) {
-      setHouseId(id);
-      loadTasks(id);
-    }
-  }, []);
+useEffect(() => {
+  const id = localStorage.getItem("houseId");
+  if (!id) return;
+
+  setHouseId(id);
+
+  const q = query(
+    collection(db, "houses", id, "tasks"),
+    orderBy("createdAt", "desc")
+  );
+
+  const unsub = onSnapshot(q, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    setTasks(list);
+  });
+
+  return () => unsub();
+}, []);
 
   async function loadTasks(hId: string) {
     const snapshot = await getDocs(
@@ -40,7 +51,6 @@ export default function DashboardPage() {
   });
 
   setNewTask("");
-  loadTasks(houseId);
 }
 async function completeTask(taskId: string) {
   if (!houseId) return;
@@ -50,7 +60,6 @@ async function completeTask(taskId: string) {
     completedAt: serverTimestamp(),
   });
 
-  loadTasks(houseId);
 }
 
   return (
